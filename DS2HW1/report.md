@@ -1,65 +1,178 @@
-# 41143263
+# 41343116
 
-作業一
+HW1
 
 ## 解題說明
 
-本題要求實現一個遞迴函式，計算從 $1$ 到 $n$ 的連加總和。
+本題要求實作五種排序演算法，並針對不同資料量 $n$ 進行效能與記憶體分析，找出各情況下的最佳解。
 
 ### 解題策略
 
-1. 使用遞迴函式將問題拆解為更小的子問題：
-   $$\Sigma(n) = n + \Sigma(n-1)$$
-2. 當 $n \leq 1$ 時，返回 $n$ 作為遞迴的結束條件。  
-3. 主程式呼叫遞迴函式，並輸出計算結果。
+1. 實作核心排序函式：包含 Insertion Sort、Quick Sort (Median-of-three)、Iterative Merge Sort、Heap Sort 與 Composite Sort。
+2. 效能分析：針對 $n=500, 1000, 2000, 3000, 4000, 5000$ 計算執行時間與記憶體使用量。  
+3. 測試資料建立：Average-case 使用隨機產生；Worst-case 則根據演算法特性篩選或推導最差排列。
 
 ## 程式實作
 
 以下為主要程式碼：
 
 ```cpp
-#include <iostream>
-#include <cstdlib>
+include <iostream>
+#include <vector>
+#include <algorithm>
+#include <chrono>
+#include <Windows.h>
+#include <Psapi.h>
+#include <ctime>
+
 using namespace std;
 
-const int MAX_STACK = 10000; // 記憶體限制
+void printMemoryUsage() {
+    PROCESS_MEMORY_COUNTERS memInfo;
+    if (GetProcessMemoryInfo(GetCurrentProcess(), &memInfo, sizeof(memInfo))) {
+        cout << memInfo.WorkingSetSize / 1024 << " KB" << endl;
+    }
+}
 
-int ackermann_non_recursive(int m, int n) {
-    int stack[MAX_STACK];
-    int top = -1;
+void insertionSort(vector<int> arr) {
+    int n = arr.size();
+    for (int i = 1; i < n; i++) {
+        int key = arr[i];
+        int j = i - 1;
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = key;
+    }
+}
 
-    stack[++top] = m;
+void quickSort(vector<int> arr, int left, int right) {
+    if (left < right) {
+        int mid = left + (right - left) / 2;
+        if (arr[left] > arr[mid]) swap(arr[left], arr[mid]);
+        if (arr[left] > arr[right]) swap(arr[left], arr[right]);
+        if (arr[mid] > arr[right]) swap(arr[mid], arr[right]);
 
-    while (top >= 0) {
-        m = stack[top--];
+        int pivot = arr[mid];
+        int i = left;
+        int j = right;
 
-        if (m == 0) {
-            n = n + 1;
-        } else if (n == 0) {
-            stack[++top] = m - 1;
-            n = 1;
-        } else {
-            stack[++top] = m - 1;
-            stack[++top] = m;
-            n = n - 1;
+        while (i <= j) {
+            while (arr[i] < pivot) i++;
+            while (arr[j] > pivot) j--;
+            if (i <= j) {
+                swap(arr[i], arr[j]);
+                i++;
+                j--;
+            }
+        }
+        if (left < j) quickSort(arr, left, j);
+        if (i < right) quickSort(arr, i, right);
+    }
+}
+
+void merge(vector<int>& arr, int left, int mid, int right) {
+    int n1 = mid - left + 1;
+    int n2 = right - mid;
+    vector<int> L(n1), R(n2);
+
+    for (int i = 0; i < n1; i++) L[i] = arr[left + i];
+    for (int j = 0; j < n2; j++) R[j] = arr[mid + 1 + j];
+
+    int i = 0, j = 0, k = left;
+    while (i < n1 && j < n2) {
+        if (L[i] <= R[j]) {
+            arr[k++] = L[i++];
+        }
+        else {
+            arr[k++] = R[j++];
         }
     }
-    return n;
+    while (i < n1) arr[k++] = L[i++];
+    while (j < n2) arr[k++] = R[j++];
+}
+
+void iterativeMergeSort(vector<int> arr) {
+    int n = arr.size();
+    for (int curr_size = 1; curr_size < n; curr_size = 2 * curr_size) {
+        for (int left_start = 0; left_start < n - 1; left_start += 2 * curr_size) {
+            int mid = min(left_start + curr_size - 1, n - 1);
+            int right_end = min(left_start + 2 * curr_size - 1, n - 1);
+            merge(arr, left_start, mid, right_end);
+        }
+    }
+}
+
+void heapify(vector<int>& arr, int n, int i) {
+    int largest = i;
+    int l = 2 * i + 1;
+    int r = 2 * i + 2;
+
+    if (l < n && arr[l] > arr[largest]) largest = l;
+    if (r < n && arr[r] > arr[largest]) largest = r;
+
+    if (largest != i) {
+        swap(arr[i], arr[largest]);
+        heapify(arr, n, largest);
+    }
+}
+
+void heapSort(vector<int> arr) {
+    int n = arr.size();
+    for (int i = n / 2 - 1; i >= 0; i--) {
+        heapify(arr, n, i);
+    }
+    for (int i = n - 1; i > 0; i--) {
+        swap(arr[0], arr[i]);
+        heapify(arr, i, 0);
+    }
+}
+
+void compositeSort(vector<int> arr) {
+    if (arr.size() < 16) {
+        insertionSort(arr);
+    }
+    else {
+        quickSort(arr, 0, arr.size() - 1);
+    }
 }
 
 int main() {
-    int m, n;
-    cout << "Enter m and n: ";
-    cin >> m >> n;
-    cout << "Ackermann(" << m << ", " << n << ") = " << ackermann_non_recursive(m, n) << endl;
+    srand((unsigned)time(NULL));
+    int test_sizes[] = { 500, 1000, 2000, 3000, 4000, 5000 };
+
+    for (int n : test_sizes) {
+        vector<int> data;
+        for (int i = 0; i < n; i++) {
+            data.push_back(rand() % 10000);
+        }
+
+        cout << "N = " << n << endl;
+        cout << "Memory Before: ";
+        printMemoryUsage();
+
+        auto start_time = chrono::high_resolution_clock::now();
+        heapSort(data);
+        auto end_time = chrono::high_resolution_clock::now();
+
+        auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
+
+        cout << "Time: " << duration.count() << " us" << endl;
+        cout << "Memory After: ";
+        printMemoryUsage();
+        cout << "--------------------------------" << endl;
+    }
+
     return 0;
 }
 ```
 
 ## 效能分析
 
-1. 時間複雜度：程式的時間複雜度為 $O(\log n)$。
-2. 空間複雜度：空間複雜度為 $O(100\times \log n + \pi)$。
+1. 時間複雜度：Insertion Sort: $O(n^2)$。
+              Quick / Merge / Heap Sort: $O(n \log n)$
+3. 空間複雜度：需注意記憶體使用量與空間複雜度間的轉換$$。
 
 ## 測試與驗證
 
